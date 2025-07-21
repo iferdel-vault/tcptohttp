@@ -23,14 +23,14 @@ func main() {
 
 	b := make([]byte, 8, 8)
 	var line string
-
 	for {
 		n, err := file.Read(b)
 		if err != nil {
+			if line != "" {
+				fmt.Printf("read: %s\n", line)
+				line = ""
+			}
 			if errors.Is(err, io.EOF) {
-				if line != "" {
-					fmt.Printf("read: %s\n", line)
-				}
 				break
 			}
 			log.Fatalf("error reading file: %v", err)
