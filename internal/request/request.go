@@ -2,6 +2,7 @@ package request
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -9,7 +10,7 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
-	parserState parserState
+	state       requestState
 }
 
 type RequestLine struct {
@@ -18,40 +19,81 @@ type RequestLine struct {
 	Method        string
 }
 
-type parserState int
+type requestState int
 
 const (
-	initialized parserState = iota
-	done
+	requestStateInitialized requestState = iota
+	requestStateDone
 )
 
 const crlf = "\r\n"
+const buffSize = 8
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	rawBytes, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, buffSize, buffSize)
+	readToIndex := 0
+	req := &Request{
+		state: requestStateInitialized,
 	}
-	requestLine, err := parseRequestLine(rawBytes)
-	if err != nil {
-		return nil, err
+	for req.state != requestStateDone {
+		if readToIndex >= len(buf) {
+			newBuf := make([]byte, len(buf)*2)
+			copy(newBuf, buf)
+			buf = newBuf
+		}
+
+		numBytesRead, err := reader.Read(buf[readToIndex:])
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				req.state = requestStateDone
+				break
+			}
+			return nil, err
+		}
+		readToIndex += numBytesRead
+
+		numBytesParsed, err := req.parse(buf[:readToIndex])
+		if err != nil {
+			return nil, err
+		}
+
+		copy(buf, buf[numBytesParsed:])
+		readToIndex -= numBytesParsed
 	}
-	return &Request{
-		RequestLine: *requestLine,
-	}, nil
+	return req, nil
 }
 
-func parseRequestLine(data []byte) (int, error) {
+func (r *Request) parse(data []byte) (int, error) {
+	switch r.state {
+	case requestStateInitialized:
+		rl, i, err := parseRequestLine(data)
+		if err != nil {
+			return 0, err
+		}
+		if i == 0 {
+			return 0, nil
+		}
+		r.RequestLine = rl
+		r.state = requestStateDone
+		return i, nil
+	case requestStateDone:
+		return 0, errors.New("error: trying to read data in a done state")
+	default:
+		return 0, errors.New("error: unknown state")
+	}
+}
+
+func parseRequestLine(data []byte) (RequestLine, int, error) {
 	idx := bytes.Index(data, []byte(crlf))
 	if idx == -1 {
-		return 0, nil
+		return RequestLine{}, 0, nil
 	}
 	requestLineText := string(data[:idx])
-	_, err := requestLineFromString(requestLineText)
+	r, err := requestLineFromString(requestLineText)
 	if err != nil {
-		return 0, err
+		return RequestLine{}, 0, err
 	}
-	return idx, nil
+	return *r, idx, nil
 }
 
 func requestLineFromString(str string) (*RequestLine, error) {
