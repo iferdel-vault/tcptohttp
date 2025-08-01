@@ -9,6 +9,7 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
+	parserState parserState
 }
 
 type RequestLine struct {
@@ -16,6 +17,13 @@ type RequestLine struct {
 	RequestTarget string
 	Method        string
 }
+
+type parserState int
+
+const (
+	initialized parserState = iota
+	done
+)
 
 const crlf = "\r\n"
 
@@ -33,17 +41,17 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	}, nil
 }
 
-func parseRequestLine(data []byte) (*RequestLine, error) {
+func parseRequestLine(data []byte) (int, error) {
 	idx := bytes.Index(data, []byte(crlf))
 	if idx == -1 {
-		return nil, fmt.Errorf("could not find CRLF in request-line")
+		return 0, nil
 	}
 	requestLineText := string(data[:idx])
-	requestLine, err := requestLineFromString(requestLineText)
+	_, err := requestLineFromString(requestLineText)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return requestLine, nil
+	return idx, nil
 }
 
 func requestLineFromString(str string) (*RequestLine, error) {
