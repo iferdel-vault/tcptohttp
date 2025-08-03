@@ -66,10 +66,10 @@ func (h *Headers) Set(key, value string) error {
 	return nil
 }
 
-func (h *Headers) Get(key string) (string, error) {
+func (h Headers) Get(key string) (string, error) {
 	key = strings.ToLower(key)
-	if _, ok := (*h)[key]; !ok {
+	if _, ok := h[key]; !ok {
 		return "", fmt.Errorf("header key %q does not exists", key)
 	}
-	return (*h)[key], nil
+	return h[key], nil
 }
