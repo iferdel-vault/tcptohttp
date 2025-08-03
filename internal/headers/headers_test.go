@@ -56,4 +56,23 @@ func TestHeadersParse(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
+
+	// Test: Valid capital letters in header key
+	headers = NewHeaders()
+	data = []byte("HOST:localhost:5432")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, 17, n)
+	assert.False(t, done)
+
+	// Test: Invalid character in header key
+	headers = NewHeaders()
+	data = []byte("H©st:localhost:5432")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
 }
