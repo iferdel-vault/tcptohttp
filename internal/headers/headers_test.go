@@ -10,7 +10,7 @@ import (
 func TestHeadersParse(t *testing.T) {
 	// Test: Valid single header
 	headers := NewHeaders()
-	data := []byte("Host: localhost:42069\r\n\r\n")
+	data := []byte("Host: localhost:42069\r\n\r\n") // double crlf means ends of header section and beginning of message body
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
@@ -63,5 +63,15 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
+	// Test: Valid multiple values
+	headers = map[string]string{"set-person": "test1"}
+	data = []byte("Set-PERSON: new-person\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "test1, new-person", headers["set-person"])
+	assert.Equal(t, 24, n)
 	assert.False(t, done)
 }
