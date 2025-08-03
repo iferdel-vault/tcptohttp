@@ -57,6 +57,14 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
 
+	// Test: Invalid header
+	headers = NewHeaders()
+	data = []byte("       Host  localhost:42069       \r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
 	// Test: Invalid character header
 	headers = NewHeaders()
 	data = []byte("H©st: localhost:42069\r\n\r\n")
