@@ -71,13 +71,13 @@ func TestRequestLineHeaderParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.Error(t, err)
 
-	// // Test: Missing End of Header
-	// reader = &chunkReader{
-	// 	data:            "GET / HTTP/1.1\r\nHost localhost:42069",
-	// 	numBytesPerRead: 3,
-	// }
-	// r, err = RequestFromReader(reader)
-	// require.Error(t, err)
+	// Test: Missing End of Headers
+	reader = &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.Error(t, err)
 }
 
 func TestRequestLineParse(t *testing.T) {
