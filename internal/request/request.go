@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/iferdel-vault/tcptohttp/internal/headers"
@@ -13,6 +14,7 @@ import (
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	state       requestState
 }
 
@@ -26,8 +28,9 @@ type requestState int
 
 const (
 	requestStateInitialized requestState = iota
-	requestStateDone
 	requestStateParsingHeaders
+	requestStateParsingBody
+	requestStateDone
 )
 
 const crlf = "\r\n"
@@ -156,9 +159,28 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
-			r.state = requestStateDone
+			r.state = requestStateParsingBody
 		}
 		return n, nil
+	case requestStateParsingBody:
+		clString, err := r.Headers.Get("Content-Length")
+		if err != nil {
+			r.state = requestStateDone
+			return 0, nil
+			// return 0, errors.New("content-length is not reported but body contains data")
+		}
+		cl, err := strconv.Atoi(clString)
+		if err != nil {
+			return 0, err
+		}
+		r.Body = append(r.Body, data...)
+		if len(r.Body) > cl {
+			return 0, errors.New("body length is greater than reported content-length")
+		}
+		if len(r.Body) == cl {
+			r.state = requestStateDone
+		}
+		return len(data), nil
 	case requestStateDone:
 		return 0, errors.New("error: trying to read data in a done state")
 	default:

@@ -68,7 +68,7 @@ func TestBodyParse(t *testing.T) {
 		numBytesPerRead: 3,
 	}
 	r, err = RequestFromReader(reader)
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestRequestLineHeaderParse(t *testing.T) {
