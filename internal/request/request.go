@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/iferdel-vault/tcptohttp/internal/headers"
 )
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	state       requestState
 }
 
@@ -24,6 +27,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateDone
+	requestStateParsingHeaders
 )
 
 const crlf = "\r\n"
