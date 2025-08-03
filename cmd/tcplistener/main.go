@@ -35,24 +35,14 @@ func main() {
 			log.Fatalf("error request from reader: %s\n", err.Error())
 		}
 
-		h := ""
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", req.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
+		fmt.Println("Headers:")
 		for key, value := range req.Headers {
-			h += fmt.Sprintf("- %s: %s\n", key, value)
+			fmt.Printf("- %s: %s\n", key, value)
 		}
-
-		fmt.Printf(`
-Request line:
-- Method: %s
-- Target: %s
-- Version: %s
-Headers:
-%s
-`,
-			req.RequestLine.Method,
-			req.RequestLine.RequestTarget,
-			req.RequestLine.HttpVersion,
-			h,
-		)
 
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
