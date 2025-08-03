@@ -37,7 +37,8 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	buf := make([]byte, buffSize, buffSize)
 	readToIndex := 0
 	req := &Request{
-		state: requestStateInitialized,
+		state:   requestStateInitialized,
+		Headers: headers.NewHeaders(),
 	}
 	for req.state != requestStateDone {
 		if readToIndex >= len(buf) {
@@ -68,23 +69,39 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	switch r.state {
-	case requestStateInitialized:
-		rl, i, err := parseRequestLine(data)
-		if err != nil {
-			return 0, err
+	var count int
+	for r.state != requestStateDone {
+		if r.state == requestStateInitialized {
+			rl, i, err := parseRequestLine(data)
+			if err != nil {
+				return 0, err
+			}
+			if i == 0 {
+				return count, nil
+			}
+			r.RequestLine = rl
+			count += i
+			r.state = requestStateParsingHeaders
+		} else if r.state == requestStateParsingHeaders {
+			n, done, err := r.Headers.Parse(data[count:])
+			if err != nil {
+				return 0, err
+			}
+			if n == 0 && !done {
+				// not enough data for a new header yet
+				return count, nil
+			}
+			count += n
+			if done {
+				r.state = requestStateDone
+			}
+		} else if r.state == requestStateDone {
+			return 0, errors.New("error: trying to read data in a done state")
+		} else {
+			return 0, errors.New("error: unknown state")
 		}
-		if i == 0 {
-			return 0, nil
-		}
-		r.RequestLine = rl
-		r.state = requestStateDone
-		return i, nil
-	case requestStateDone:
-		return 0, errors.New("error: trying to read data in a done state")
-	default:
-		return 0, errors.New("error: unknown state")
 	}
+	return count, nil
 }
 
 func parseRequestLine(data []byte) (RequestLine, int, error) {
@@ -97,7 +114,7 @@ func parseRequestLine(data []byte) (RequestLine, int, error) {
 	if err != nil {
 		return RequestLine{}, 0, err
 	}
-	return *r, idx, nil
+	return *r, idx + len(crlf), nil
 }
 
 func requestLineFromString(str string) (*RequestLine, error) {

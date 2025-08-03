@@ -15,7 +15,7 @@ func NewHeaders() Headers {
 	return Headers{}
 }
 
-func (h Headers) Parse(data []byte) (n int, done bool, err error) {
+func (h *Headers) Parse(data []byte) (n int, done bool, err error) {
 	idx := bytes.Index(data, []byte(crlf))
 	if idx == -1 {
 		return 0, false, nil
@@ -29,6 +29,9 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	key := strings.ToLower(string(parts[0]))
 
 	if key != strings.TrimRight(key, " ") {
+		return 0, false, fmt.Errorf("invalid header name: %s", key)
+	}
+	if key == "" {
 		return 0, false, fmt.Errorf("invalid header name: %s", key)
 	}
 
@@ -53,12 +56,12 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	return idx + len(crlf), false, nil
 }
 
-func (h Headers) Set(key, value string) error {
+func (h *Headers) Set(key, value string) error {
 	key = strings.ToLower(key)
-	if val, ok := h[key]; ok {
-		h[key] = fmt.Sprintf("%s, %s", val, value)
+	if val, ok := (*h)[key]; ok {
+		(*h)[key] = fmt.Sprintf("%s, %s", val, value)
 		return nil
 	}
-	h[key] = value
+	(*h)[key] = value
 	return nil
 }
