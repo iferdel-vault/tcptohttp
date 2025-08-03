@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"strings"
+
+	"github.com/iferdel-vault/tcptohttp/internal/request"
 )
 
 const port = "42069"
@@ -28,11 +30,22 @@ func main() {
 		}
 		fmt.Println("connection has been accepted from", conn.RemoteAddr())
 
-		linesChan := getLinesChannel(conn)
-
-		for line := range linesChan {
-			fmt.Println(line)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Fatalf("error request from reader: %s\n", err.Error())
 		}
+
+		fmt.Printf(`
+			Request line:
+			- Method: %s
+			- Target: %s
+			- Version: %s
+		`,
+			req.RequestLine.Method,
+			req.RequestLine.RequestTarget,
+			req.RequestLine.HttpVersion,
+		)
+
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
 
