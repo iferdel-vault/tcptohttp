@@ -12,10 +12,11 @@ import (
 )
 
 type Request struct {
-	RequestLine RequestLine
-	Headers     headers.Headers
-	Body        []byte
-	state       requestState
+	RequestLine    RequestLine
+	Headers        headers.Headers
+	Body           []byte
+	state          requestState
+	bodyLengthRead int
 }
 
 type RequestLine struct {
@@ -42,6 +43,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	req := &Request{
 		state:   requestStateInitialized,
 		Headers: headers.NewHeaders(),
+		Body:    make([]byte, 0),
 	}
 	for req.state != requestStateDone {
 		if readToIndex >= len(buf) {
@@ -163,21 +165,22 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 		}
 		return n, nil
 	case requestStateParsingBody:
-		clString, err := r.Headers.Get("Content-Length")
-		if err != nil {
+		clStr, ok := r.Headers.Get("Content-Length")
+		if !ok {
+			// assume that if no content-length header is present, there is no body
 			r.state = requestStateDone
-			return 0, nil
-			// return 0, errors.New("content-length is not reported but body contains data")
+			return len(data), nil
 		}
-		cl, err := strconv.Atoi(clString)
+		cl, err := strconv.Atoi(clStr)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("malformed Content-Length: %s", err)
 		}
 		r.Body = append(r.Body, data...)
-		if len(r.Body) > cl {
+		r.bodyLengthRead += len(data)
+		if r.bodyLengthRead > cl {
 			return 0, errors.New("body length is greater than reported content-length")
 		}
-		if len(r.Body) == cl {
+		if r.bodyLengthRead == cl {
 			r.state = requestStateDone
 		}
 		return len(data), nil
