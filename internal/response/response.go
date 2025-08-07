@@ -3,6 +3,8 @@ package response
 import (
 	"fmt"
 	"io"
+
+	"github.com/iferdel-vault/tcptohttp/internal/headers"
 )
 
 const (
@@ -26,4 +28,22 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	}
 	_, err := w.Write([]byte(val))
 	return err
+}
+
+func GetDefaultHeaders(contentLen int) headers.Headers {
+	h := headers.Headers{}
+	h["Content-Length"] = fmt.Sprintf("%d", contentLen)
+	h["Connection"] = "close"
+	h["Content-Type"] = "text/plain"
+	return h
+}
+
+func WriteHeaders(w io.Writer, headers headers.Headers) error {
+	for key, value := range headers {
+		_, err := w.Write([]byte(fmt.Sprintf("%s: %s\r\n", key, value)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
