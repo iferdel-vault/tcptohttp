@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	StatusOK                  StatusCode = 200 // RFC 9110, 15.3.1
-	StatusBadRequest          StatusCode = 400 // RFC 9110, 15.5.1
-	StatusInternalServerError StatusCode = 500 // RFC 9110, 15.6.1
+	StatusOK                  StatusCode = 200
+	StatusBadRequest          StatusCode = 400
+	StatusInternalServerError StatusCode = 500
 )
 
 type StatusCode int
@@ -21,20 +21,29 @@ var StatusCodeReasonPhrase = map[StatusCode]string{
 	StatusInternalServerError: "HTTP/1.1 500 Internal Server Error",
 }
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
-	val, ok := StatusCodeReasonPhrase[statusCode]
-	if !ok {
-		val = fmt.Sprintf("HTTP/1.1 %d ", statusCode)
+func getStatusLine(statusCode StatusCode) []byte {
+	reasonPhrase := ""
+	switch statusCode {
+	case StatusOK:
+		reasonPhrase = "OK"
+	case StatusBadRequest:
+		reasonPhrase = "Bad Request"
+	case StatusInternalServerError:
+		reasonPhrase = "Internal Server Error"
 	}
-	_, err := w.Write([]byte(val))
+	return []byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", statusCode, reasonPhrase))
+}
+
+func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+	_, err := w.Write(getStatusLine(statusCode))
 	return err
 }
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
-	h := headers.Headers{}
-	h["Content-Length"] = fmt.Sprintf("%d", contentLen)
-	h["Connection"] = "close"
-	h["Content-Type"] = "text/plain"
+	h := headers.NewHeaders()
+	h.Set("Content-Length", fmt.Sprintf("%d", contentLen))
+	h.Set("Connection", "close")
+	h.Set("Content-Type", "text/plain")
 	return h
 }
 
@@ -45,5 +54,6 @@ func WriteHeaders(w io.Writer, headers headers.Headers) error {
 			return err
 		}
 	}
-	return nil
+	_, err := w.Write([]byte("\r\n"))
+	return err
 }
