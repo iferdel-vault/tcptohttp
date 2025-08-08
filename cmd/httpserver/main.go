@@ -30,8 +30,20 @@ func main() {
 func handler(w *response.Writer, r *request.Request) {
 	switch r.RequestLine.RequestTarget {
 	case "/yourproblem":
-		w.WriteStatusLine(response.StatusBadRequest)
-		body := []byte(`
+		handler400(w, r)
+		return
+	case "/myproblem":
+		handler500(w, r)
+		return
+	default:
+		handler200(w, r)
+		return
+	}
+}
+
+func handler400(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusBadRequest)
+	body := []byte(`
 <html>
   <head>
     <title>400 Bad Request</title>
@@ -42,13 +54,15 @@ func handler(w *response.Writer, r *request.Request) {
   </body>
 </html>
 `)
-		headers := response.GetDefaultHeaders(len(body))
-		headers.Override("Content-Type", "text/html")
-		w.WriteHeaders(headers)
-		w.WriteBody(body)
-	case "/myproblem":
-		w.WriteStatusLine(response.StatusInternalServerError)
-		body := []byte(`
+	headers := response.GetDefaultHeaders(len(body))
+	headers.Override("Content-Type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
+}
+
+func handler500(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusInternalServerError)
+	body := []byte(`
 <html>
   <head>
     <title>500 Internal Server Error</title>
@@ -59,13 +73,15 @@ func handler(w *response.Writer, r *request.Request) {
   </body>
 </html>
 `)
-		headers := response.GetDefaultHeaders(len(body))
-		headers.Override("Content-Type", "text/html")
-		w.WriteHeaders(headers)
-		w.WriteBody(body)
-	default:
-		w.WriteStatusLine(response.StatusOK)
-		body := []byte(`
+	headers := response.GetDefaultHeaders(len(body))
+	headers.Override("Content-Type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
+}
+
+func handler200(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusOK)
+	body := []byte(`
 <html>
   <head>
     <title>200 OK</title>
@@ -76,9 +92,8 @@ func handler(w *response.Writer, r *request.Request) {
   </body>
 </html>
 `)
-		headers := response.GetDefaultHeaders(len(body))
-		headers.Override("Content-Type", "text/html")
-		w.WriteHeaders(headers)
-		w.WriteBody(body)
-	}
+	headers := response.GetDefaultHeaders(len(body))
+	headers.Override("Content-Type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
 }

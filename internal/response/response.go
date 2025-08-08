@@ -85,26 +85,10 @@ func getStatusLine(statusCode StatusCode) []byte {
 	return []byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", statusCode, reasonPhrase))
 }
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
-	_, err := w.Write(getStatusLine(statusCode))
-	return err
-}
-
 func GetDefaultHeaders(contentLen int) headers.Headers {
 	h := headers.NewHeaders()
 	h.Set("Content-Length", fmt.Sprintf("%d", contentLen))
 	h.Set("Connection", "close")
 	h.Set("Content-Type", "text/plain")
 	return h
-}
-
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-	for key, value := range headers {
-		_, err := w.Write([]byte(fmt.Sprintf("%s: %s\r\n", key, value)))
-		if err != nil {
-			return err
-		}
-	}
-	_, err := w.Write([]byte("\r\n"))
-	return err
 }
