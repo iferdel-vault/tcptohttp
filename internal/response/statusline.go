@@ -1,5 +1,7 @@
 package response
 
+import "fmt"
+
 const (
 	StatusOK                  StatusCode = 200
 	StatusBadRequest          StatusCode = 400
