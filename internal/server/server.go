@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -12,7 +11,7 @@ import (
 	"github.com/iferdel-vault/tcptohttp/internal/response"
 )
 
-type Handler func(w io.Writer, r *request.Request) *HandlerError
+type Handler func(w *response.Writer, r *request.Request)
 
 type HandlerError struct {
 	StatusCode response.StatusCode
@@ -34,7 +33,7 @@ type Server struct {
 	state    serverState
 	listener net.Listener
 	isClosed atomic.Bool
-	handler  func(w io.Writer, r *request.Request) *HandlerError
+	handler  func(w *response.Writer, r *request.Request)
 }
 
 type serverState int
@@ -83,32 +82,15 @@ func (s *Server) listen() {
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
+	w := response.NewWriter(conn)
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		hErr := &HandlerError{
-			StatusCode: response.StatusBadRequest,
-			Message:    err.Error(),
-		}
-		hErr.Write(conn)
+		w.WriteStatusLine(response.StatusBadRequest)
+		body := []byte(fmt.Sprintf("Error parsing request: %v", err))
+		w.WriteHeaders(response.GetDefaultHeaders(len(body)))
+		w.WriteBody(body)
 		return
 	}
-	buf := bytes.NewBuffer([]byte{})
-	hErr := s.handler(buf, req)
-	if hErr != nil {
-		hErr.Write(conn)
-		return
-	}
-	b := buf.Bytes()
-	response.WriteStatusLine(conn, response.StatusOK)
-	headers := response.GetDefaultHeaders(len(b))
-	if err := response.WriteHeaders(conn, headers); err != nil {
-		hErr := &HandlerError{
-			StatusCode: response.StatusBadRequest,
-			Message:    err.Error(),
-		}
-		hErr.Write(conn)
-		return
-	}
-	conn.Write(b)
+	s.handler(w, req)
 	return
 }
