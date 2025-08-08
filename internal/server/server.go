@@ -12,6 +12,24 @@ import (
 	"github.com/iferdel-vault/tcptohttp/internal/response"
 )
 
+type Handler func(w io.Writer, r *request.Request) *HandlerError
+
+type HandlerError struct {
+	StatusCode response.StatusCode
+	Message    string
+}
+
+func (he HandlerError) Write(w io.Writer) {
+	response.WriteStatusLine(w, he.StatusCode)
+	messageBytes := []byte(he.Message)
+	headers := response.GetDefaultHeaders(len(messageBytes))
+	if err := response.WriteHeaders(w, headers); err != nil {
+		fmt.Printf("error: %v\n", err)
+	}
+	w.Write(messageBytes)
+}
+
+// Server is an HTTP 1.1 server
 type Server struct {
 	state    serverState
 	listener net.Listener
@@ -25,10 +43,7 @@ const (
 	stateListening serverState = iota
 )
 
-func Serve(
-	handlerFunc func(w io.Writer, r *request.Request) *HandlerError,
-	port int,
-) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	portStr := strconv.Itoa(port)
 	listener, err := net.Listen("tcp", "127.0.0.1:"+portStr)
 	if err != nil {
@@ -37,7 +52,7 @@ func Serve(
 	s := &Server{
 		state:    stateListening,
 		listener: listener,
-		handler:  handlerFunc,
+		handler:  handler,
 	}
 	go s.listen()
 	return s, nil
@@ -45,7 +60,10 @@ func Serve(
 
 func (s *Server) Close() error {
 	s.isClosed.Store(true)
-	return s.listener.Close()
+	if s.listener != nil {
+		return s.listener.Close()
+	}
+	return nil
 }
 
 func (s *Server) listen() {
@@ -62,42 +80,35 @@ func (s *Server) listen() {
 	}
 }
 
-type HandlerError struct {
-	StatusCode int
-	Message    string
-}
-
-func (he *HandlerError) Error() string {
-	return fmt.Sprintf("error: status code: %d, message: %q", he.StatusCode, he.Message)
-}
-
-func handleError(w io.Writer, err *HandlerError) {
-	h := response.GetDefaultHeaders(0)
-	response.WriteStatusLine(w, response.StatusCode(err.StatusCode))
-	if err := response.WriteHeaders(w, h); err != nil {
-		fmt.Printf("error: %v\n", err)
-	}
-	w.Write([]byte(err.Message))
-}
-
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		fmt.Println("error parsing request:", err)
+		hErr := &HandlerError{
+			StatusCode: response.StatusBadRequest,
+			Message:    err.Error(),
+		}
+		hErr.Write(conn)
 		return
 	}
-	buf := bytes.Buffer{}
-	handlerErr := s.handler(&buf, req)
-	if handlerErr != nil {
-		handleError(conn, handlerErr)
+	buf := bytes.NewBuffer([]byte{})
+	hErr := s.handler(buf, req)
+	if hErr != nil {
+		hErr.Write(conn)
 		return
 	}
+	b := buf.Bytes()
 	response.WriteStatusLine(conn, response.StatusOK)
-	headers := response.GetDefaultHeaders(0)
+	headers := response.GetDefaultHeaders(len(b))
 	if err := response.WriteHeaders(conn, headers); err != nil {
-		fmt.Printf("error: %v\n", err)
+		hErr := &HandlerError{
+			StatusCode: response.StatusBadRequest,
+			Message:    err.Error(),
+		}
+		hErr.Write(conn)
+		return
 	}
-	conn.Write(buf.Bytes())
+	conn.Write(b)
+	return
 }
