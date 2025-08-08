@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -13,34 +12,12 @@ import (
 
 type Handler func(w *response.Writer, r *request.Request)
 
-type HandlerError struct {
-	StatusCode response.StatusCode
-	Message    string
-}
-
-func (he HandlerError) Write(w io.Writer) {
-	response.WriteStatusLine(w, he.StatusCode)
-	messageBytes := []byte(he.Message)
-	headers := response.GetDefaultHeaders(len(messageBytes))
-	if err := response.WriteHeaders(w, headers); err != nil {
-		fmt.Printf("error: %v\n", err)
-	}
-	w.Write(messageBytes)
-}
-
 // Server is an HTTP 1.1 server
 type Server struct {
-	state    serverState
 	listener net.Listener
 	isClosed atomic.Bool
 	handler  func(w *response.Writer, r *request.Request)
 }
-
-type serverState int
-
-const (
-	stateListening serverState = iota
-)
 
 func Serve(port int, handler Handler) (*Server, error) {
 	portStr := strconv.Itoa(port)
@@ -49,7 +26,6 @@ func Serve(port int, handler Handler) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		state:    stateListening,
 		listener: listener,
 		handler:  handler,
 	}
@@ -81,7 +57,6 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-
 	w := response.NewWriter(conn)
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
@@ -92,5 +67,4 @@ func (s *Server) handle(conn net.Conn) {
 		return
 	}
 	s.handler(w, req)
-	return
 }
