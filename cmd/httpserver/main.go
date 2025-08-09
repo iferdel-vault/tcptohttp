@@ -37,6 +37,9 @@ func main() {
 func handler(w *response.Writer, r *request.Request) {
 	target := r.RequestLine.RequestTarget
 	switch {
+	case target == "/video":
+		videoHandler(w, r)
+		return
 	case strings.HasPrefix(target, "/httpbin"):
 		proxyHandler(w, r)
 		return
@@ -167,4 +170,19 @@ func proxyHandler(w *response.Writer, r *request.Request) {
 	if err != nil {
 		fmt.Println("Error writing trailers:", err)
 	}
+}
+
+func videoHandler(w *response.Writer, r *request.Request) {
+	dat, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		fmt.Println("error reading static video file:", err)
+		handler500(w, r)
+		return
+	}
+
+	w.WriteStatusLine(response.StatusOK)
+	h := response.GetDefaultHeaders(len(dat))
+	h.Override("Content-Type", "video/mp4")
+	w.WriteHeaders(h)
+	w.WriteBody(dat)
 }
